@@ -30,7 +30,7 @@ export default function SendPhotoPage() {
     }
   }, []);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const { getRootProps, getInputProps } = useDropzone({
     onDrop,
     multiple: false,
   });
@@ -110,8 +110,14 @@ export default function SendPhotoPage() {
       console.log("🔑 Generated OTP:", generatedOtp);
 
       if (!window.ethereum) {
-        alert("MetaMask not detected! Please install MetaMask.");
-        return;
+        if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+          // ✅ Redirect to MetaMask mobile app if used on phone
+          window.location.href = `https://metamask.app.link/dapp/${window.location.href}`;
+          return;
+        } else {
+          alert("MetaMask not detected! Please install MetaMask.");
+          return;
+        }
       }
 
       const provider = new ethers.BrowserProvider(window.ethereum);
@@ -122,7 +128,7 @@ export default function SendPhotoPage() {
       const tx = await contract.sendFile(
         recipient, 
         ipfsHash, 
-        encryptionKey,  // ✅ Directly storing encryption key, no extra encryption
+        encryptionKey,  
         String(generatedOtp)
       );
       await tx.wait(); // Wait for confirmation
