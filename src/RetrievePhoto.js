@@ -14,10 +14,6 @@ function RetrievePhotoPage() {
   const [fileType, setFileType] = useState("");
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    connectWallet();
-  }, []);
-
   // 🔗 Connect to MetaMask Wallet
   const connectWallet = async () => {
     if (window.ethereum) {
