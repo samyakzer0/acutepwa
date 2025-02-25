@@ -9,6 +9,7 @@ import PhotoZappABI from "./artifacts/PhotoTransfer.json";
 const CONTRACT_ADDRESS = "0x444CE1A913DEDBAEE39eD59B77B3D7D5De6b7452";
 
 export default function SendPhotoPage() {
+  const [walletAddress, setWalletAddress] = useState("");
   const [recipient, setRecipient] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
   const [ipfsHash, setIpfsHash] = useState("");
@@ -17,6 +18,22 @@ export default function SendPhotoPage() {
   const [fileType, setFileType] = useState("");
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState(null);
+
+  const connectWallet = async () => {
+    if (!window.ethereum) {
+      alert("Please install MetaMask!");
+      return;
+    }
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const address = await signer.getAddress();
+      setWalletAddress(address);
+      console.log("✅ Connected to wallet:", address);
+    } catch (error) {
+      console.error("❌ Wallet connection failed:", error);
+    }
+  };
 
   const onDrop = useCallback((acceptedFiles) => {
     const file = acceptedFiles[0];
@@ -35,7 +52,6 @@ export default function SendPhotoPage() {
     multiple: false,
   });
 
-  // 🔐 Encrypt the file & store as Base64
   const encryptFile = async (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -46,8 +62,7 @@ export default function SendPhotoPage() {
         const encryptedData = CryptoJS.AES.encrypt(wordArray, key).toString();
         setEncryptionKey(key);
 
-        // ✅ Store both MIME type & file extension along with encrypted data
-        const fileExt = file.name.split(".").pop() || "bin"; // Extract file extension, fallback to "bin"
+        const fileExt = file.name.split(".").pop() || "bin";
         const payload = `${file.type}::${fileExt}::${encryptedData}`;
         resolve({ encryptedData: btoa(payload), key });
       };
@@ -55,7 +70,6 @@ export default function SendPhotoPage() {
     });
   };
 
-  // ⬆️ Upload encrypted file to IPFS
   const handleUpload = async () => {
     if (!selectedFile) {
       alert("Please select a file first.");
@@ -65,7 +79,6 @@ export default function SendPhotoPage() {
     try {
       setLoading(true);
 
-      // Encrypt the file
       const { encryptedData, key } = await encryptFile(selectedFile);
       setEncryptionKey(key);
       console.log("🔐 Encryption Key Generated:", key);
@@ -89,8 +102,11 @@ export default function SendPhotoPage() {
     }
   };
 
-  // 📤 Send transaction to blockchain
   const sendPhoto = async () => {
+    if (!walletAddress) {
+      alert("Please connect your wallet first!");
+      return;
+    }
     if (!ipfsHash || !recipient || !encryptionKey) {
       alert("Upload a file and enter a recipient address first!");
       return;
@@ -99,7 +115,6 @@ export default function SendPhotoPage() {
     try {
       setLoading(true);
 
-      // Generate OTP
       console.log("📢 Requesting OTP...");
       const otpResponse = await axios.post("https://acutev2.onrender.com/generate-otp", {
         recipient,
@@ -111,7 +126,6 @@ export default function SendPhotoPage() {
 
       if (!window.ethereum) {
         if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-          // ✅ Redirect to MetaMask mobile app if used on phone
           window.location.href = `https://metamask.app.link/dapp/${window.location.href}`;
           return;
         } else {
@@ -126,12 +140,12 @@ export default function SendPhotoPage() {
 
       console.log("🚀 Sending transaction...");
       const tx = await contract.sendFile(
-        recipient, 
-        ipfsHash, 
-        encryptionKey,  
+        recipient,
+        ipfsHash,
+        encryptionKey,
         String(generatedOtp)
       );
-      await tx.wait(); // Wait for confirmation
+      await tx.wait();
 
       console.log("✅ Transaction successful:", tx);
       alert(`File sent successfully! Transaction Hash: ${tx.hash}`);
@@ -148,7 +162,11 @@ export default function SendPhotoPage() {
     <div className="page-container">
       <div className="form-container glass-effect">
         <h2 className="section-title">Send File!</h2>
-
+        {!walletAddress ? (
+          <button className="action-button connect-button" onClick={connectWallet}>Connect Wallet</button>
+        ) : (
+          <p className="wallet-address">Connected: {walletAddress}</p>
+        )}
         <div {...getRootProps()} className="dropzone">
           <input {...getInputProps()} />
           {preview ? (
@@ -162,39 +180,14 @@ export default function SendPhotoPage() {
             </div>
           )}
         </div>
-
         <button className="action-button upload-button" onClick={handleUpload} disabled={!selectedFile || loading}>
           {loading ? <Loader className="spin" /> : <Upload size={20} />}
           <span>{loading ? "Uploading..." : "Upload to IPFS"}</span>
         </button>
-
-        {ipfsHash && (
-          <div className="info-box glass-effect">
-            <p className="label">IPFS Hash:</p>
-            <p className="value">{ipfsHash}</p>
-          </div>
-        )}
-
-        <input
-          type="text"
-          className="text-input glass-effect"
-          placeholder="Recipient Address (0x...)"
-          value={recipient}
-          onChange={(e) => setRecipient(e.target.value)}
-        />
-
         <button className="action-button send-button" onClick={sendPhoto} disabled={!ipfsHash || !recipient || loading}>
           {loading ? <Loader className="spin" /> : <Send size={20} />}
           <span>{loading ? "Processing..." : "Send File"}</span>
         </button>
-
-        {otp && (
-          <div className="info-box glass-effect success">
-            <p className="label">Generated OTP:</p>
-            <p className="value">{otp}</p>
-            <p className="hint">Share this OTP with the recipient</p>
-          </div>
-        )}
       </div>
     </div>
   );
