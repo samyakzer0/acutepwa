@@ -3,12 +3,13 @@ import Footer from "./Footer";
 import { BrowserRouter as Router, Route, Routes, Link } from "react-router-dom";
 import SendPhotoPage from "./SendPhoto";
 import RetrievePhotoPage from "./RetrievePhoto";
-import { Camera, Download, Home, Wallet } from "lucide-react";
+import { Camera, Download, Home, Wallet, LogOut } from "lucide-react";
 import { ethers, BrowserProvider } from "ethers";
 import "./App.css";
 
 function App() {
   const [walletAddress, setWalletAddress] = useState(null);
+  const [showOptions, setShowOptions] = useState(false); // Toggle menu state
 
   // 🏆 Connect to MetaMask
   const connectWallet = async () => {
@@ -23,11 +24,19 @@ function App() {
       const address = await signer.getAddress();
 
       setWalletAddress(address);
+      setShowOptions(false); // Hide options after connecting
       console.log("✅ Connected Wallet:", address);
     } catch (error) {
       console.error("❌ Wallet connection failed:", error);
       alert("Failed to connect wallet. Please try again.");
     }
+  };
+
+  // 🔌 Disconnect Wallet
+  const disconnectWallet = () => {
+    setWalletAddress(null);
+    setShowOptions(false);
+    console.log("❌ Disconnected Wallet");
   };
 
   return (
@@ -52,13 +61,34 @@ function App() {
             </Link>
           </div>
 
-          {/* 🚀 Connect Wallet Button */}
-          <button className="nav-button wallet-button" onClick={connectWallet}>
-            <Wallet size={24} />
-            {walletAddress
-              ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
-              : "Connect"}
-          </button>
+          {/* 🚀 Connect/Disconnect Wallet Button */}
+          <div className="wallet-container">
+            <button className="nav-button wallet-button" onClick={() => setShowOptions(!showOptions)}>
+              <Wallet size={24} />
+              {walletAddress
+                ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
+                : "Connect"}
+            </button>
+
+            {showOptions && (
+              <div className="wallet-options glass-effect">
+                {walletAddress ? (
+                  <>
+                    <p className="wallet-address">{walletAddress}</p>
+                    <button className="disconnect-button" onClick={disconnectWallet}>
+                      <LogOut size={16} />
+                      Disconnect
+                    </button>
+                  </>
+                ) : (
+                  <button className="connect-button" onClick={connectWallet}>
+                    <Wallet size={16} />
+                    Connect Wallet
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </nav>
 
         <div className="main-content">
