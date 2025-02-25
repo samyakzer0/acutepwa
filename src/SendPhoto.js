@@ -3,25 +3,25 @@ import { useDropzone } from "react-dropzone";
 import axios from "axios";
 import { ethers } from "ethers";
 import CryptoJS from "crypto-js";
-import { Upload, Send, Loader } from "lucide-react";
+import { Upload, Send, Loader, Wallet } from "lucide-react";
 import PhotoZappABI from "./artifacts/PhotoTransfer.json";
 
 const CONTRACT_ADDRESS = "0x444CE1A913DEDBAEE39eD59B77B3D7D5De6b7452";
 
 export default function SendPhotoPage() {
-  const [walletAddress, setWalletAddress] = useState("");
+  const [walletAddress, setWalletAddress] = useState(null);
   const [recipient, setRecipient] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
   const [ipfsHash, setIpfsHash] = useState("");
   const [otp, setOtp] = useState(null);
   const [encryptionKey, setEncryptionKey] = useState("");
-  const [fileType, setFileType] = useState("");
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState(null);
 
+  // 🔗 Connect Wallet
   const connectWallet = async () => {
     if (!window.ethereum) {
-      alert("Please install MetaMask!");
+      alert("Please install MetaMask or use WalletConnect!");
       return;
     }
     try {
@@ -32,13 +32,14 @@ export default function SendPhotoPage() {
       console.log("✅ Connected to wallet:", address);
     } catch (error) {
       console.error("❌ Wallet connection failed:", error);
+      alert("Failed to connect wallet. Please try again.");
     }
   };
 
+  // 📤 Handle File Upload (Dropzone)
   const onDrop = useCallback((acceptedFiles) => {
     const file = acceptedFiles[0];
     setSelectedFile(file);
-    setFileType(file.type);
 
     if (file.type.startsWith("image")) {
       const objectUrl = URL.createObjectURL(file);
@@ -52,6 +53,7 @@ export default function SendPhotoPage() {
     multiple: false,
   });
 
+  // 🔐 Encrypt the File
   const encryptFile = async (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -70,6 +72,7 @@ export default function SendPhotoPage() {
     });
   };
 
+  // ⬆️ Upload File to IPFS
   const handleUpload = async () => {
     if (!selectedFile) {
       alert("Please select a file first.");
@@ -81,7 +84,7 @@ export default function SendPhotoPage() {
 
       const { encryptedData, key } = await encryptFile(selectedFile);
       setEncryptionKey(key);
-      console.log("🔐 Encryption Key Generated:", key);
+      console.log("🔐 Encryption Key:", key);
 
       const formData = new FormData();
       formData.append("file", new Blob([encryptedData], { type: "application/octet-stream" }));
@@ -102,6 +105,7 @@ export default function SendPhotoPage() {
     }
   };
 
+  // 📤 Send File Transaction
   const sendPhoto = async () => {
     if (!walletAddress) {
       alert("Please connect your wallet first!");
@@ -162,11 +166,16 @@ export default function SendPhotoPage() {
     <div className="page-container">
       <div className="form-container glass-effect">
         <h2 className="section-title">Send File!</h2>
+
         {!walletAddress ? (
-          <button className="action-button connect-button" onClick={connectWallet}>Connect Wallet</button>
+          <button className="action-button connect-button" onClick={connectWallet}>
+            <Wallet size={20} />
+            <span>Connect Wallet</span>
+          </button>
         ) : (
           <p className="wallet-address">Connected: {walletAddress}</p>
         )}
+
         <div {...getRootProps()} className="dropzone">
           <input {...getInputProps()} />
           {preview ? (
@@ -180,10 +189,22 @@ export default function SendPhotoPage() {
             </div>
           )}
         </div>
+
         <button className="action-button upload-button" onClick={handleUpload} disabled={!selectedFile || loading}>
           {loading ? <Loader className="spin" /> : <Upload size={20} />}
           <span>{loading ? "Uploading..." : "Upload to IPFS"}</span>
         </button>
+
+        {ipfsHash && (
+          <input
+            type="text"
+            className="text-input glass-effect"
+            placeholder="Recipient Address (0x...)"
+            value={recipient}
+            onChange={(e) => setRecipient(e.target.value)}
+          />
+        )}
+
         <button className="action-button send-button" onClick={sendPhoto} disabled={!ipfsHash || !recipient || loading}>
           {loading ? <Loader className="spin" /> : <Send size={20} />}
           <span>{loading ? "Processing..." : "Send File"}</span>
